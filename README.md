@@ -1,4 +1,4 @@
-# Practical Work (WS 2023)
+# Practical Work (WS 2023): Reimplementation of "Adversarial Examples Are Not Bugs, They Are Features"
 
 #### Author: Franziska Denk (k11904292)
 
