@@ -21,7 +21,7 @@ This confirms their main findings.
 The three main differences are:
 * The PGD attack in this work doesn't achieve such low adversarial accuracy for the standard model, as in the work of Ilyas et al. For a PGD attack with $\epsilon=0.5$, steps $=7$ and $\alpha=0.1$, we achieve adversarial accuracy of ~$15$%, while Ilyas et al. report $0$%.
 * For creating $\mathcal{D}_{rand}$ and $\mathcal{D}_{det}$ with PGD, $\epsilon$ needed to be larger in this work than in their setting. We used $\epsilon=5$ while they had $\epsilon=0.5$
-* $\mathcal{D}_{rand}$ & $\mathcal{D}_{det}$ that are created with a robust model (as control dataset), have a much higher accuracy in this work than in the results of Ilyas et al.
+* $\mathcal{D} _{rand}$ & $\mathcal{D} _{det}$ that are created with a robust model (as control dataset), have a much higher accuracy in this work than in the results of Ilyas et al.
 
 
 ## References
