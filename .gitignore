@@ -1,0 +1,37 @@
+# ipython/jupyter notebooks
+**/.ipynb_checkpoints/
+
+# wandb logging data
+*.wandb
+*.log
+*.json
+wandb/*
+# pytorch/python/numpy formats
+*_model_*txt
+
+# compilation and distribution
+__pycache__
+_ext
+*.pyc
+*.pyd
+*.so
+*.dll
+*.egg-info/
+build/
+dist/
+wheels/
+datasets/
+checkpoints/
+
+# data
+*tar.gz
+*meta
+*_batch*
+*.html
+*.jpg
+*.pkl
+
+# logging 
+wandb/**
+
+src/models/*
