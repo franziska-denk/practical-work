@@ -26,7 +26,7 @@ The three main differences are:
 
 ## References
 <a id="1">[1]</a> 
-Andrew Ilyas et al.
+Andrew Ilyas, Shibani Santurkar, Dimitris Tsipras, Logan Engstrom, Brandon Tran and Aleksander Madry
 “Adversarial Examples Are Not Bugs, They Are Features”.
 In: Advances in Neural Information Processing Systems (NeurIPS). vol. 32. Vancouver, Canada: Curran Associates,
 Inc., 2019, pp. 125–136.
