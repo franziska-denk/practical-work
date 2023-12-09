@@ -77,7 +77,7 @@ class Modifier:
         x, y_target = batch
         g_x = self.model(x.to(self.device))
         mod_x, _ = adv_attack(batch=x_r,
-                              model=self.model,
+                              network=self.model,
                               loss_func=nn.MSELoss(),
                               target=g_x,
                               clip_adv_input=True,
@@ -99,7 +99,7 @@ class Modifier:
         """
         y_target = torch.randint(low=0, high=self.n_classes-1, size=(batch[0].shape[0],))
         mod_x, y = adv_attack(batch=batch,
-                              model=self.model,
+                              network=self.model,
                               loss_func=nn.CrossEntropyLoss(),
                               target=y_target,
                               **self.adversary_param)
@@ -121,7 +121,7 @@ class Modifier:
         x,y = batch
         y_target = (y+1) % self.n_classes
         mod_x, y = adv_attack(batch=batch,
-                              model=self.model,
+                              network=self.model,
                               loss_func=nn.CrossEntropyLoss(),
                               target=y_target,
                               **self.adversary_param)
@@ -158,7 +158,7 @@ def main(opt):
 
     labels = dict()
     modifier = Modifier(model, n_classes=len(data["classes"]), adversary_param=adversary_param)
-    os.makedirs(os.path.join(opt.save_path, "img"), exists_ok=True)
+    os.makedirs(os.path.join(opt.save_path, "img"), exist_ok=True)
 
     print(f"Using modification {opt.modification} ...")
     idx = 0
