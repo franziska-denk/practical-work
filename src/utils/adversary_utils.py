@@ -11,13 +11,16 @@ def get_grad(model: nn.Module) -> bool:
 
 def get_adversary_param(opt):
     if opt.modification in ["dr", "dnr"]:
+        # workaround for no epsilon at all in Ilyas et al:
+        # very large epsilon, which in norm won't be exceeded anyway
+        # and thus not used for normalization
         adversary_param = {"steps": 1000,
                            "epsilon": 1e5,
                            "alpha": 0.1}
         
     elif opt.modification in ["drand", "ddet"]:
         adversary_param = {"steps": 100,
-                           "epsilon": 5,
+                           "epsilon": 2,
                            "alpha": 0.1}
     if opt.steps:
         adversary_param["steps"] = opt.steps
@@ -60,12 +63,12 @@ def adv_attack(batch: Tuple[torch.Tensor, torch.Tensor],
             x_adv = x_adv.requires_grad_(True)
             output = network.forward(x_adv)
             loss = loss_func(output, y)
-            loss.backward()
+            grad = torch.autograd.grad(loss, [x_adv])[0]
 
             with torch.no_grad():
                 # normalize gradient for fixed distance in l2-norm per step
-                l2_norm = x_adv.grad.view(x_adv.shape[0], -1).norm(2, dim=-1) + 1e-10
-                norm_grad = x_adv.grad / l2_norm.view(-1, 1, 1, 1) 
+                l2_norm = grad.view(x_adv.shape[0], -1).norm(2, dim=-1) + 1e-10
+                norm_grad = grad / l2_norm.view(-1, 1, 1, 1) 
 
                 if target is not None:
                     x_adv = x_adv - alpha*norm_grad.clone().detach() # descent if in direction of target
@@ -75,8 +78,7 @@ def adv_attack(batch: Tuple[torch.Tensor, torch.Tensor],
 
                 # stay in l2 norm epsilon ball around original image
                 # delta * 1 if epsilon > norm, delta/norm*epsilon if norm > epsilon
-                normalized_delta = delta.view(delta.shape[0], -1).norm(2, dim=-1).view(-1, 1, 1, 1)
-                delta = epsilon*delta/(torch.max(normalized_delta, torch.tensor(epsilon)) + 1e-10)
+                delta = delta.renorm(p=2, dim=0, maxnorm=epsilon)
         
     x_adv = x_nat + delta
     x_adv = torch.clamp(x_adv, min=0, max=1)

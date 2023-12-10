@@ -14,6 +14,7 @@ import argparse
 import os
 import pickle
 import sys
+import tqdm
 from typing import Tuple
 
 import torch
@@ -102,6 +103,7 @@ class Modifier:
                               network=self.model,
                               loss_func=nn.CrossEntropyLoss(),
                               target=y_target,
+                              clip_adv_input=True,
                               **self.adversary_param)
         
         return mod_x, y_target
@@ -124,6 +126,7 @@ class Modifier:
                               network=self.model,
                               loss_func=nn.CrossEntropyLoss(),
                               target=y_target,
+                              clip_adv_input=True,
                               **self.adversary_param)
         
         return mod_x, y_target
@@ -162,7 +165,7 @@ def main(opt):
 
     print(f"Using modification {opt.modification} ...")
     idx = 0
-    for batch in train_loader:
+    for batch in tqdm.tqdm(train_loader, total=len(train_loader)):
         
         if opt.modification in ["dr", "dnr"]: 
             x_r = next(iter(train_loader))

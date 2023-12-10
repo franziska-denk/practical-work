@@ -17,7 +17,8 @@ def get_cifar10_data(BATCH_SIZE: int = 64,
                      img_size: int = 32,
                      data_path: str = None,
                      augment: bool = True,
-                     subsample: bool = False) -> dict[str, 
+                     subsample: bool = False,
+                     train_shuffle: bool = True) -> dict[str, 
                                                   Union[torch.Tensor, Tuple]]:
     
     # https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html?highlight=cifar 
@@ -27,9 +28,10 @@ def get_cifar10_data(BATCH_SIZE: int = 64,
     
     if augment:
         train_transform_list = test_transform_list + [#transforms.RandomVerticalFlip(p=0.2),
-                                            transforms.RandomResizedCrop(size=32, scale=(0.6, 1)),
+                                            transforms.RandomResizedCrop(size=img_size, scale=(0.6, 1)),
                                             transforms.RandomHorizontalFlip(p=0.5),
-                                            transforms.RandomRotation(5)]#,
+                                            transforms.ColorJitter(.25,.25,.25),
+                                            transforms.RandomRotation(2)]#,
                                             #transforms.RandomResizedCrop((64,64), scale=(0.6, 1))]
     else:
         train_transform_list = test_transform_list
@@ -57,7 +59,7 @@ def get_cifar10_data(BATCH_SIZE: int = 64,
         val_set = Subset(train_set, range(int(len(val_set)*0.25)))
         test_set = Subset(test_set, range(int(len(test_set)*0.25)))
 
-    train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True, drop_last=True)
+    train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=train_shuffle, drop_last=True)
     val_loader = DataLoader(val_set, BATCH_SIZE, shuffle=False, drop_last=True)
     test_loader = DataLoader(test_set, BATCH_SIZE, shuffle=True, drop_last=False)
 
@@ -78,7 +80,7 @@ class ModifiedCifar(Dataset):
         self.transform = transform
     
     def __len__(self):
-        return len(self.labels)
+       return len(self.labels)
     
     def __getitem__(self,
                     idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
