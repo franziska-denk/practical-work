@@ -1,13 +1,13 @@
-set version=v8
+set version=v9
 set n_epochs=100
 set wandbproj=practical_work_%version%
 call conda activate practical_work
 
 echo Run Standard Training
-python ./src/train.py --wandb_name standard_d --wandb_project %wandbproj% --model_name standard_d_%version% --n_epochs %n_epochs%
+rem python ./src/train.py --wandb_name standard_d --wandb_project %wandbproj% --model_name standard_d_%version% --n_epochs %n_epochs%
 
 echo Run Robust Training
-python ./src/train.py --wandb_name robust_d --include_adversary True --wandb_project %wandbproj% --model_name robust_d_%version% --n_epochs %n_epochs% --adversary_epsilon 2
+rem python ./src/train.py --wandb_name robust_d --include_adversary True --wandb_project %wandbproj% --model_name robust_d_%version% --n_epochs %n_epochs%
 
 echo Create Robust Dataset
 python ./src/modify_data.py --modification dr --model robust_d_%version%/best.pt --save_path ./data/d_r
