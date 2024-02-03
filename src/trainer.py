@@ -7,6 +7,9 @@ from torch.utils.data import DataLoader
 
 from utils.adversary_utils import adv_attack
 
+torch.manual_seed(42)
+torch.backends.cudnn.deterministic = True
+
 class Trainer:
     """Class to handle training and testing for one epoch.
     """
@@ -21,6 +24,7 @@ class Trainer:
         self.model = model.to(self.device)
         self.criterion = criterion
         self.optimizer = optimizer
+
         if scheduler:
             self.scheduler = scheduler
 

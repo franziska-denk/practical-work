@@ -18,7 +18,9 @@ from datetime import datetime
 import os
 import sys
 import time
+import random
 
+import numpy as np
 import torch
 import torchvision
 import torch.nn as nn
@@ -29,8 +31,6 @@ import wandb
 from utils.data_utils import get_cifar10_data
 from trainer import Trainer
 # from models.resnet_56 import resnet56
-
-torch.manual_seed(0)
 
 def init_weights_uniform(m):
     if isinstance(m, nn.Linear):
@@ -47,6 +47,7 @@ def get_time():
 
 def parse_opt():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--seed', type=int, default=47, help="Set random seed.")
     parser.add_argument('--debug', type=bool, default=False, help='run in debug mode')
     parser.add_argument('--dataset_path', type=str, default=None, help='dataset that should be used. if not provided, standard dataset will be used')
     parser.add_argument('--model_name', type=str, default=None, help='model name under which checkpoint is saved')
@@ -95,10 +96,17 @@ def main(opt):
     # define optimizers & schedulers
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=opt.start_lr, momentum=opt.momentum, weight_decay=opt.weight_decay)
-    scheduler = MultiStepLR(optimizer, [60])
+    scheduler = MultiStepLR(optimizer, [80, 130])
 
     # get data
-    data = get_cifar10_data(opt.batch_size, img_size=32, data_path=opt.dataset_path, augment=not opt.no_augment, subsample=opt.debug)
+    data = get_cifar10_data(
+        BATCH_SIZE=opt.batch_size, 
+        img_size=32, 
+        data_path=opt.dataset_path, 
+        augment=not opt.no_augment, 
+        subsample=opt.debug,
+        seed=opt.seed
+    )
     _, train_loader = data["train"]
     _, val_loader = data["val"]
     _, test_loader = data["test"]
@@ -185,4 +193,8 @@ def main(opt):
 
 if __name__ == '__main__':
     opt = parse_opt()
+    random.seed(opt.seed)
+    np.random.seed(opt.seed)
+    torch.manual_seed(opt.seed)
+    torch.backends.cudnn.deterministic = True
     main(opt)

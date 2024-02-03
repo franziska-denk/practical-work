@@ -16,7 +16,9 @@ import pickle
 import sys
 import tqdm
 from typing import Tuple
+import random
 
+import numpy as np
 import torch
 import torchvision
 from torch import nn as nn
@@ -25,15 +27,18 @@ from PIL import Image
 from utils.data_utils import get_cifar10_data
 from utils.adversary_utils import (adv_attack,
                                    get_adversary_param)
+from utils.loss import RMSELoss
 
 BATCH_SIZE = 128
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--modification', type=str, default='dr', help='which modified dataset should be created: dr, dnr, ddet, drand')
+    parser.add_argument('--seed', type=int, default=47, help="Set random seed.")
+    parser.add_argument('--modification', type=str, default='drand', help='which modified dataset should be created: dr, dnr, ddet, drand')
     parser.add_argument('--save_path', type=str, default="./data/d_r", help='path under which data will be saved')
-    parser.add_argument('--model', type=str, default='robust_model_32_25-10-2023_16-35.pt', help='model used to create modified dataset')
+    parser.add_argument('--model', type=str, default='standard_d_v15/best.pt', help='model used to create modified dataset')
     parser.add_argument('--resnet101', type=bool, default=False, help='True if Resnet101 should be used, else Resnet50')
+    parser.add_argument('--mairmodel', type=bool, default=False, help='True if MairModel should be used, else Resnet50')
     parser.add_argument('--steps', type=int, default=None, help='steps used to create to create single sample')
     parser.add_argument('--epsilon', type=float, default=None, help='epsilon used to create samples')
     parser.add_argument('--alpha', type=float, default=None, help='alpha used in creating samples')
@@ -47,13 +52,15 @@ class Modifier:
     def __init__(self,
                  model: nn.Module,
                  adversary_param: dict,
-                 n_classes: int = None):
+                 n_classes: int = None,
+                 seed: int = 47):
         
         self.model = model
         self.adversary_param = adversary_param
         self.n_classes = n_classes
         self.mapping = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.g = torch.Generator().manual_seed(seed)
 
     def modify_dr_dnr(self,
                       batch: Tuple[torch.Tensor, torch.Tensor],
@@ -78,11 +85,11 @@ class Modifier:
         x, y_target = batch
         g_x = self.model(x.to(self.device))
         mod_x, _ = adv_attack(batch=x_r,
-                              network=self.model,
-                              loss_func=nn.MSELoss(),
-                              target=g_x,
-                              clip_adv_input=True,
-                              **self.adversary_param)
+                            network=self.model,
+                            loss_func=nn.MSELoss(),
+                            target=g_x,
+                            clip_adv_input=True,
+                            **self.adversary_param)
 
         return mod_x, y_target
 
@@ -98,7 +105,12 @@ class Modifier:
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: (optimized_image, target_label)
         """
-        y_target = torch.randint(low=0, high=self.n_classes-1, size=(batch[0].shape[0],))
+        y_target = torch.randint(
+            low=0, 
+            high=self.n_classes-1, 
+            size=(batch[0].shape[0],),
+            generator=self.g
+        )
         mod_x, y = adv_attack(batch=batch,
                               network=self.model,
                               loss_func=nn.CrossEntropyLoss(),
@@ -135,12 +147,16 @@ class Modifier:
 def main(opt):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    data = get_cifar10_data(BATCH_SIZE, 32, subsample=False, augment=False)
-    _, train_loader = data["train"]
+    data = get_cifar10_data(BATCH_SIZE, 32, train_shuffle=False, augment=False, seed=opt.seed)
+    train_set, train_loader = data["train"]
 
     if opt.resnet101:
         model = torchvision.models.resnet101()
         print("Loading Resnet101")
+    elif opt.mairmodel:
+        from mair.hub import load_pretrained
+        model = load_pretrained("CIFAR10_ResNet18_AT(eps=8, alpha=2, steps=10)", flag='Best', save_dir="./")
+        print("Loading mair model.")
     else:
         model = torchvision.models.resnet50()
         print("Loading Resnet50")
@@ -148,27 +164,49 @@ def main(opt):
     #model = resnet56()
     model.to(device)
 
-    MODEL_PATH = f"ckpts/{opt.model}"
-    model.load_state_dict(torch.load(MODEL_PATH));
+    if not opt.mairmodel:
+        MODEL_PATH = f"ckpts/{opt.model}"
+        model.load_state_dict(torch.load(MODEL_PATH));
     model.eval();
     if opt.modification in ["dr", "dnr"]:
-        model.fc = nn.Identity()
-        #model.linear = nn.Identity()
-        #model.pool = nn.Identity()
+        if opt.mairmodel or opt.resnet101:
+            model.linear = nn.Identity()
+        else:
+            model.fc = nn.Identity()
 
     adversary_param = get_adversary_param(opt)
     print(adversary_param)
 
     labels = dict()
-    modifier = Modifier(model, n_classes=len(data["classes"]), adversary_param=adversary_param)
+    modifier = Modifier(
+        model=model,
+        n_classes=len(data["classes"]),
+        adversary_param=adversary_param,
+        seed=opt.seed
+    )
     os.makedirs(os.path.join(opt.save_path, "img"), exist_ok=True)
 
     print(f"Using modification {opt.modification} ...")
+    random_sampler = None
+    if opt.modification in ["dnr", "dr"]:
+        g = torch.Generator()
+        g.manual_seed(opt.seed-1)
+        random_sampler = torch.utils.data.RandomSampler(
+            data_source=train_set, 
+            generator=g
+        )
+
+    random_loader = torch.utils.data.DataLoader(
+        dataset=train_set,
+        batch_size=BATCH_SIZE,
+        sampler=random_sampler,
+        drop_last=True
+    )
     idx = 0
-    for batch in tqdm.tqdm(train_loader, total=len(train_loader)):
+    for batch, random_sample in tqdm.tqdm(zip(train_loader, random_loader), total=len(train_loader)):
         
         if opt.modification in ["dr", "dnr"]: 
-            x_r = next(iter(train_loader))
+            x_r = random_sample
             mod_x, y_target = modifier.modify_dr_dnr(batch, x_r)
         elif opt.modification == "drand":
             mod_x, y_target = modifier.modify_drand(batch)
@@ -183,7 +221,7 @@ def main(opt):
             img.save(os.path.join(opt.save_path, "img", f"{idx+i}.jpg"))
             labels[idx+i] = y_target[i]
 
-        print(f"done with {idx+i}")
+        #print(f"done with {idx+i}")
         idx += BATCH_SIZE
 
     with open(os.path.join(opt.save_path, "labels.pkl"), "wb") as f:
@@ -192,4 +230,9 @@ def main(opt):
 
 if __name__=="__main__":
     opt = parse_opt()
+    random.seed(opt.seed)
+    np.random.seed(opt.seed)
+    torch.manual_seed(opt.seed) 
+    torch.backends.cudnn.deterministic = True
+    print("Going forward with seed: ", opt.seed)
     main(opt)
